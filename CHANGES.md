@@ -11,6 +11,12 @@ Notable changes between versions.
 * flannel-cni v0.3.0
   * Update flannel CNI config to fix hostPort
 
+#### Digital Ocean
+
+* Run etcd cluster across controller nodes (etcd-member.service)
+* Reduce time to bootstrap a cluster
+* Remove support for self-hosted etcd
+
 ## v1.7.5
 
 * Kubernetes v1.7.5
