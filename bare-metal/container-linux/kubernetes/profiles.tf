@@ -11,7 +11,7 @@ resource "matchbox_profile" "container-linux-install" {
     "coreos.config.url=${var.matchbox_http_endpoint}/ignition?uuid=$${uuid}&mac=$${mac:hexhyp}",
     "coreos.first_boot=yes",
     "console=tty0",
-    "console=ttyS0",
+    "console=ttyS1",
   ]
 
   container_linux_config = "${data.template_file.container-linux-install-config.rendered}"
@@ -46,7 +46,7 @@ resource "matchbox_profile" "cached-container-linux-install" {
     "coreos.config.url=${var.matchbox_http_endpoint}/ignition?uuid=$${uuid}&mac=$${mac:hexhyp}",
     "coreos.first_boot=yes",
     "console=tty0",
-    "console=ttyS0",
+    "console=ttyS1",
   ]
 
   container_linux_config = "${data.template_file.cached-container-linux-install-config.rendered}"
