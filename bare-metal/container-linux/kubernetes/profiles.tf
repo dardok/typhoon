@@ -1,108 +1,218 @@
+locals {
+  # coreos-stable -> coreos flavor, stable channel
+  # flatcar-stable -> flatcar flavor, stable channel
+  flavor  = split("-", var.os_channel)[0]
+  channel = split("-", var.os_channel)[1]
+}
+
 // Container Linux Install profile (from release.core-os.net)
 resource "matchbox_profile" "container-linux-install" {
-  name   = "container-linux-install"
-  kernel = "http://${var.container_linux_channel}.release.core-os.net/amd64-usr/${var.container_linux_version}/coreos_production_pxe.vmlinuz"
+  count = length(var.controllers) + length(var.workers)
+  name  = format("%s-container-linux-install-%s", var.cluster_name, concat(var.controllers.*.name, var.workers.*.name)[count.index])
+
+  kernel = "${var.download_protocol}://${local.channel}.release.core-os.net/amd64-usr/${var.os_version}/coreos_production_pxe.vmlinuz"
 
   initrd = [
-    "http://${var.container_linux_channel}.release.core-os.net/amd64-usr/${var.container_linux_version}/coreos_production_pxe_image.cpio.gz",
+    "${var.download_protocol}://${local.channel}.release.core-os.net/amd64-usr/${var.os_version}/coreos_production_pxe_image.cpio.gz",
   ]
 
-  args = [
+  args = flatten([
+    "initrd=coreos_production_pxe_image.cpio.gz",
     "coreos.config.url=${var.matchbox_http_endpoint}/ignition?uuid=$${uuid}&mac=$${mac:hexhyp}",
     "coreos.first_boot=yes",
     "console=tty0",
     "console=ttyS1,115200n8",
-  ]
+    var.kernel_args,
+  ])
 
-  container_linux_config = "${data.template_file.container-linux-install-config.rendered}"
+  container_linux_config = data.template_file.container-linux-install-configs.*.rendered[count.index]
 }
 
-data "template_file" "container-linux-install-config" {
-  template = "${file("${path.module}/cl/container-linux-install.yaml.tmpl")}"
+data "template_file" "container-linux-install-configs" {
+  count = length(var.controllers) + length(var.workers)
 
-  vars {
-    container_linux_channel = "${var.container_linux_channel}"
-    container_linux_version = "${var.container_linux_version}"
-    ignition_endpoint       = "${format("%s/ignition", var.matchbox_http_endpoint)}"
-    install_disk            = "${var.install_disk}"
-    container_linux_oem     = "${var.container_linux_oem}"
+  template = file("${path.module}/cl/install.yaml")
 
+  vars = {
+    os_flavor          = local.flavor
+    os_channel         = local.channel
+    os_version         = var.os_version
+    ignition_endpoint  = format("%s/ignition", var.matchbox_http_endpoint)
+    install_disk       = var.install_disk
+    ssh_authorized_key = var.ssh_authorized_key
     # only cached-container-linux profile adds -b baseurl
     baseurl_flag = ""
   }
 }
 
 // Container Linux Install profile (from matchbox /assets cache)
-// Note: Admin must have downloaded container_linux_version into matchbox assets.
+// Note: Admin must have downloaded os_version into matchbox assets/coreos.
 resource "matchbox_profile" "cached-container-linux-install" {
-  name   = "cached-container-linux-install"
-  kernel = "/assets/coreos/${var.container_linux_version}/coreos_production_pxe.vmlinuz"
+  count = length(var.controllers) + length(var.workers)
+  name  = format("%s-cached-container-linux-install-%s", var.cluster_name, concat(var.controllers.*.name, var.workers.*.name)[count.index])
+
+  kernel = "/assets/coreos/${var.os_version}/coreos_production_pxe.vmlinuz"
 
   initrd = [
-    "/assets/coreos/${var.container_linux_version}/coreos_production_pxe_image.cpio.gz",
+    "/assets/coreos/${var.os_version}/coreos_production_pxe_image.cpio.gz",
   ]
 
-  args = [
+  args = flatten([
+    "initrd=coreos_production_pxe_image.cpio.gz",
     "coreos.config.url=${var.matchbox_http_endpoint}/ignition?uuid=$${uuid}&mac=$${mac:hexhyp}",
     "coreos.first_boot=yes",
     "console=tty0",
+<<<<<<< HEAD
     "console=ttyS1,115200n8",
   ]
+=======
+    "console=ttyS0",
+    var.kernel_args,
+  ])
+>>>>>>> upstream/master
 
-  container_linux_config = "${data.template_file.cached-container-linux-install-config.rendered}"
+  container_linux_config = data.template_file.cached-container-linux-install-configs.*.rendered[count.index]
 }
 
-data "template_file" "cached-container-linux-install-config" {
-  template = "${file("${path.module}/cl/container-linux-install.yaml.tmpl")}"
+data "template_file" "cached-container-linux-install-configs" {
+  count = length(var.controllers) + length(var.workers)
 
-  vars {
-    container_linux_channel = "${var.container_linux_channel}"
-    container_linux_version = "${var.container_linux_version}"
-    ignition_endpoint       = "${format("%s/ignition", var.matchbox_http_endpoint)}"
-    install_disk            = "${var.install_disk}"
-    container_linux_oem     = "${var.container_linux_oem}"
+  template = file("${path.module}/cl/install.yaml")
 
+  vars = {
+    os_flavor          = local.flavor
+    os_channel         = local.channel
+    os_version         = var.os_version
+    ignition_endpoint  = format("%s/ignition", var.matchbox_http_endpoint)
+    install_disk       = var.install_disk
+    ssh_authorized_key = var.ssh_authorized_key
     # profile uses -b baseurl to install from matchbox cache
-    baseurl_flag = "-b ${var.matchbox_http_endpoint}/assets/coreos"
+    baseurl_flag = "-b ${var.matchbox_http_endpoint}/assets/${local.flavor}"
   }
+}
+
+// Flatcar Linux install profile (from release.flatcar-linux.net)
+resource "matchbox_profile" "flatcar-install" {
+  count = length(var.controllers) + length(var.workers)
+  name  = format("%s-flatcar-install-%s", var.cluster_name, concat(var.controllers.*.name, var.workers.*.name)[count.index])
+
+  kernel = "${var.download_protocol}://${local.channel}.release.flatcar-linux.net/amd64-usr/${var.os_version}/flatcar_production_pxe.vmlinuz"
+
+  initrd = [
+    "${var.download_protocol}://${local.channel}.release.flatcar-linux.net/amd64-usr/${var.os_version}/flatcar_production_pxe_image.cpio.gz",
+  ]
+
+  args = flatten([
+    "initrd=flatcar_production_pxe_image.cpio.gz",
+    "flatcar.config.url=${var.matchbox_http_endpoint}/ignition?uuid=$${uuid}&mac=$${mac:hexhyp}",
+    "flatcar.first_boot=yes",
+    "console=tty0",
+    "console=ttyS0",
+    var.kernel_args,
+  ])
+
+  container_linux_config = data.template_file.container-linux-install-configs.*.rendered[count.index]
+}
+
+// Flatcar Linux Install profile (from matchbox /assets cache)
+// Note: Admin must have downloaded os_version into matchbox assets/flatcar.
+resource "matchbox_profile" "cached-flatcar-linux-install" {
+  count = length(var.controllers) + length(var.workers)
+  name  = format("%s-cached-flatcar-linux-install-%s", var.cluster_name, concat(var.controllers.*.name, var.workers.*.name)[count.index])
+
+  kernel = "/assets/flatcar/${var.os_version}/flatcar_production_pxe.vmlinuz"
+
+  initrd = [
+    "/assets/flatcar/${var.os_version}/flatcar_production_pxe_image.cpio.gz",
+  ]
+
+  args = flatten([
+    "initrd=flatcar_production_pxe_image.cpio.gz",
+    "flatcar.config.url=${var.matchbox_http_endpoint}/ignition?uuid=$${uuid}&mac=$${mac:hexhyp}",
+    "flatcar.first_boot=yes",
+    "console=tty0",
+    "console=ttyS0",
+    var.kernel_args,
+  ])
+
+  container_linux_config = data.template_file.cached-container-linux-install-configs.*.rendered[count.index]
 }
 
 // Kubernetes Controller profiles
 resource "matchbox_profile" "controllers" {
-  count                  = "${length(var.controller_names)}"
-  name                   = "${format("%s-controller-%s", var.cluster_name, element(var.controller_names, count.index))}"
-  container_linux_config = "${element(data.template_file.controller-configs.*.rendered, count.index)}"
+  count        = length(var.controllers)
+  name         = format("%s-controller-%s", var.cluster_name, var.controllers.*.name[count.index])
+  raw_ignition = data.ct_config.controller-ignitions.*.rendered[count.index]
+}
+
+data "ct_config" "controller-ignitions" {
+  count        = length(var.controllers)
+  content      = data.template_file.controller-configs.*.rendered[count.index]
+  pretty_print = false
+  snippets     = local.clc_map[var.controllers.*.name[count.index]]
 }
 
 data "template_file" "controller-configs" {
-  count = "${length(var.controller_names)}"
+  count = length(var.controllers)
 
-  template = "${file("${path.module}/cl/controller.yaml.tmpl")}"
+  template = file("${path.module}/cl/controller.yaml")
 
-  vars {
-    domain_name          = "${element(var.controller_domains, count.index)}"
-    etcd_name            = "${element(var.controller_names, count.index)}"
-    etcd_initial_cluster = "${join(",", formatlist("%s=https://%s:2380", var.controller_names, var.controller_domains))}"
-    k8s_dns_service_ip   = "${module.bootkube.kube_dns_service_ip}"
-    ssh_authorized_key   = "${var.ssh_authorized_key}"
+  vars = {
+    domain_name            = var.controllers.*.domain[count.index]
+    etcd_name              = var.controllers.*.name[count.index]
+    etcd_initial_cluster   = join(",", formatlist("%s=https://%s:2380", var.controllers.*.name, var.controllers.*.domain))
+    cgroup_driver          = var.os_channel == "flatcar-edge" ? "systemd" : "cgroupfs"
+    cluster_dns_service_ip = module.bootstrap.cluster_dns_service_ip
+    cluster_domain_suffix  = var.cluster_domain_suffix
+    ssh_authorized_key     = var.ssh_authorized_key
   }
 }
 
 // Kubernetes Worker profiles
 resource "matchbox_profile" "workers" {
-  count                  = "${length(var.worker_names)}"
-  name                   = "${format("%s-worker-%s", var.cluster_name, element(var.worker_names, count.index))}"
-  container_linux_config = "${element(data.template_file.worker-configs.*.rendered, count.index)}"
+  count        = length(var.workers)
+  name         = format("%s-worker-%s", var.cluster_name, var.workers.*.name[count.index])
+  raw_ignition = data.ct_config.worker-ignitions.*.rendered[count.index]
+}
+
+data "ct_config" "worker-ignitions" {
+  count        = length(var.workers)
+  content      = data.template_file.worker-configs.*.rendered[count.index]
+  pretty_print = false
+  snippets     = local.clc_map[var.workers.*.name[count.index]]
 }
 
 data "template_file" "worker-configs" {
-  count = "${length(var.worker_names)}"
+  count = length(var.workers)
 
-  template = "${file("${path.module}/cl/worker.yaml.tmpl")}"
+  template = file("${path.module}/cl/worker.yaml")
 
-  vars {
-    domain_name        = "${element(var.worker_domains, count.index)}"
-    k8s_dns_service_ip = "${module.bootkube.kube_dns_service_ip}"
-    ssh_authorized_key = "${var.ssh_authorized_key}"
+  vars = {
+    domain_name            = var.workers.*.domain[count.index]
+    cgroup_driver          = var.os_channel == "flatcar-edge" ? "systemd" : "cgroupfs"
+    cluster_dns_service_ip = module.bootstrap.cluster_dns_service_ip
+    cluster_domain_suffix  = var.cluster_domain_suffix
+    ssh_authorized_key     = var.ssh_authorized_key
   }
 }
+
+locals {
+  # Hack to workaround https://github.com/hashicorp/terraform/issues/17251
+  # Still an issue in Terraform v0.12 https://github.com/hashicorp/terraform/issues/20572
+  # Default Container Linux config snippets map every node names to list("\n") so
+  # all lookups succeed
+  clc_defaults = zipmap(
+    concat(var.controllers.*.name, var.workers.*.name),
+    chunklist(data.template_file.clc-default-snippets.*.rendered, 1),
+  )
+
+  # Union of the default and user specific snippets, later overrides prior.
+  clc_map = merge(local.clc_defaults, var.clc_snippets)
+}
+
+// Horrible hack to generate a Terraform list of node count length
+data "template_file" "clc-default-snippets" {
+  count    = length(var.controllers) + length(var.workers)
+  template = "\n"
+}
+

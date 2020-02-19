@@ -1,244 +1,88 @@
-# Controllers AutoScaling Group
-resource "aws_autoscaling_group" "controllers" {
-  name           = "${var.cluster_name}-controller"
-  load_balancers = ["${aws_elb.controllers.id}"]
+# Discrete DNS records for each controller's private IPv4 for etcd usage
+resource "aws_route53_record" "etcds" {
+  count = var.controller_count
 
-  # count
-  desired_capacity = "${var.controller_count}"
-  min_size         = "${var.controller_count}"
-  max_size         = "${var.controller_count}"
+  # DNS Zone where record should be created
+  zone_id = var.dns_zone_id
 
-  # network
-  vpc_zone_identifier = ["${aws_subnet.public.*.id}"]
+  name = format("%s-etcd%d.%s.", var.cluster_name, count.index, var.dns_zone)
+  type = "A"
+  ttl  = 300
 
-  # template
-  launch_configuration = "${aws_launch_configuration.controller.name}"
-
-  lifecycle {
-    # override the default destroy and replace update behavior
-    create_before_destroy = true
-    ignore_changes        = ["image_id"]
-  }
-
-  tags = [{
-    key                 = "Name"
-    value               = "${var.cluster_name}-controller"
-    propagate_at_launch = true
-  }]
+  # private IPv4 address for etcd
+  records = [aws_instance.controllers.*.private_ip[count.index]]
 }
 
-# Controller template
-resource "aws_launch_configuration" "controller" {
-  name_prefix   = "${var.cluster_name}-controller-template-"
-  image_id      = "${data.aws_ami.coreos.image_id}"
-  instance_type = "${var.controller_type}"
+# Controller instances
+resource "aws_instance" "controllers" {
+  count = var.controller_count
 
-  user_data = "${data.ct_config.controller_ign.rendered}"
+  tags = {
+    Name = "${var.cluster_name}-controller-${count.index}"
+  }
+
+  instance_type = var.controller_type
+
+  ami       = local.ami_id
+  user_data = data.ct_config.controller-ignitions.*.rendered[count.index]
 
   # storage
   root_block_device {
-    volume_type = "standard"
-    volume_size = "${var.disk_size}"
+    volume_type = var.disk_type
+    volume_size = var.disk_size
+    iops        = var.disk_iops
+    encrypted   = true
   }
 
   # network
   associate_public_ip_address = true
-  security_groups             = ["${aws_security_group.controller.id}"]
+  subnet_id                   = aws_subnet.public.*.id[count.index]
+  vpc_security_group_ids      = [aws_security_group.controller.id]
 
   lifecycle {
-    // Override the default destroy and replace update behavior
-    create_before_destroy = true
+    ignore_changes = [
+      ami,
+      user_data,
+    ]
   }
 }
 
-# Controller Container Linux Config
-data "template_file" "controller_config" {
-  template = "${file("${path.module}/cl/controller.yaml.tmpl")}"
+# Controller Ignition configs
+data "ct_config" "controller-ignitions" {
+  count        = var.controller_count
+  content      = data.template_file.controller-configs.*.rendered[count.index]
+  pretty_print = false
+  snippets     = var.controller_clc_snippets
+}
+
+# Controller Container Linux configs
+data "template_file" "controller-configs" {
+  count = var.controller_count
+
+  template = file("${path.module}/cl/controller.yaml")
 
   vars = {
-    k8s_dns_service_ip      = "${cidrhost(var.service_cidr, 10)}"
-    k8s_etcd_service_ip     = "${cidrhost(var.service_cidr, 15)}"
-    ssh_authorized_key      = "${var.ssh_authorized_key}"
-    kubeconfig_ca_cert      = "${module.bootkube.ca_cert}"
-    kubeconfig_kubelet_cert = "${module.bootkube.kubelet_cert}"
-    kubeconfig_kubelet_key  = "${module.bootkube.kubelet_key}"
-    kubeconfig_server       = "${module.bootkube.server}"
+    # Cannot use cyclic dependencies on controllers or their DNS records
+    etcd_name   = "etcd${count.index}"
+    etcd_domain = "${var.cluster_name}-etcd${count.index}.${var.dns_zone}"
+    # etcd0=https://cluster-etcd0.example.com,etcd1=https://cluster-etcd1.example.com,...
+    etcd_initial_cluster   = join(",", data.template_file.etcds.*.rendered)
+    cgroup_driver          = local.flavor == "flatcar" && local.channel == "edge" ? "systemd" : "cgroupfs"
+    kubeconfig             = indent(10, module.bootstrap.kubeconfig-kubelet)
+    ssh_authorized_key     = var.ssh_authorized_key
+    cluster_dns_service_ip = cidrhost(var.service_cidr, 10)
+    cluster_domain_suffix  = var.cluster_domain_suffix
   }
 }
 
-data "ct_config" "controller_ign" {
-  content      = "${data.template_file.controller_config.rendered}"
-  pretty_print = false
+data "template_file" "etcds" {
+  count    = var.controller_count
+  template = "etcd$${index}=https://$${cluster_name}-etcd$${index}.$${dns_zone}:2380"
+
+  vars = {
+    index        = count.index
+    cluster_name = var.cluster_name
+    dns_zone     = var.dns_zone
+  }
 }
 
-# Security Group (instance firewall)
-
-resource "aws_security_group" "controller" {
-  name        = "${var.cluster_name}-controller"
-  description = "${var.cluster_name} controller security group"
-
-  vpc_id = "${aws_vpc.network.id}"
-
-  tags = "${map("Name", "${var.cluster_name}-controller")}"
-}
-
-resource "aws_security_group_rule" "controller-icmp" {
-  security_group_id = "${aws_security_group.controller.id}"
-
-  type        = "ingress"
-  protocol    = "icmp"
-  from_port   = 0
-  to_port     = 0
-  cidr_blocks = ["0.0.0.0/0"]
-}
-
-resource "aws_security_group_rule" "controller-ssh" {
-  security_group_id = "${aws_security_group.controller.id}"
-
-  type        = "ingress"
-  protocol    = "tcp"
-  from_port   = 22
-  to_port     = 22
-  cidr_blocks = ["0.0.0.0/0"]
-}
-
-resource "aws_security_group_rule" "controller-apiserver" {
-  security_group_id = "${aws_security_group.controller.id}"
-
-  type        = "ingress"
-  protocol    = "tcp"
-  from_port   = 443
-  to_port     = 443
-  cidr_blocks = ["0.0.0.0/0"]
-}
-
-resource "aws_security_group_rule" "controller-etcd" {
-  security_group_id = "${aws_security_group.controller.id}"
-
-  type      = "ingress"
-  protocol  = "tcp"
-  from_port = 2379
-  to_port   = 2380
-  self      = true
-}
-
-resource "aws_security_group_rule" "controller-bootstrap-etcd" {
-  security_group_id = "${aws_security_group.controller.id}"
-
-  type      = "ingress"
-  protocol  = "tcp"
-  from_port = 12379
-  to_port   = 12380
-  self      = true
-}
-
-resource "aws_security_group_rule" "controller-flannel" {
-  security_group_id = "${aws_security_group.controller.id}"
-
-  type                     = "ingress"
-  protocol                 = "udp"
-  from_port                = 8472
-  to_port                  = 8472
-  source_security_group_id = "${aws_security_group.worker.id}"
-}
-
-resource "aws_security_group_rule" "controller-flannel-self" {
-  security_group_id = "${aws_security_group.controller.id}"
-
-  type      = "ingress"
-  protocol  = "udp"
-  from_port = 8472
-  to_port   = 8472
-  self      = true
-}
-
-resource "aws_security_group_rule" "controller-kubelet-read" {
-  security_group_id = "${aws_security_group.controller.id}"
-
-  type                     = "ingress"
-  protocol                 = "tcp"
-  from_port                = 10255
-  to_port                  = 10255
-  source_security_group_id = "${aws_security_group.worker.id}"
-}
-
-resource "aws_security_group_rule" "controller-kubelet-read-self" {
-  security_group_id = "${aws_security_group.controller.id}"
-
-  type      = "ingress"
-  protocol  = "tcp"
-  from_port = 10255
-  to_port   = 10255
-  self      = true
-}
-
-resource "aws_security_group_rule" "controller-bgp" {
-  security_group_id = "${aws_security_group.controller.id}"
-
-  type                     = "ingress"
-  protocol                 = "tcp"
-  from_port                = 179
-  to_port                  = 179
-  source_security_group_id = "${aws_security_group.worker.id}"
-}
-
-resource "aws_security_group_rule" "controller-bgp-self" {
-  security_group_id = "${aws_security_group.controller.id}"
-
-  type      = "ingress"
-  protocol  = "tcp"
-  from_port = 179
-  to_port   = 179
-  self      = true
-}
-
-resource "aws_security_group_rule" "controller-ipip" {
-  security_group_id = "${aws_security_group.controller.id}"
-
-  type                     = "ingress"
-  protocol                 = 4
-  from_port                = 0
-  to_port                  = 0
-  source_security_group_id = "${aws_security_group.worker.id}"
-}
-
-resource "aws_security_group_rule" "controller-ipip-self" {
-  security_group_id = "${aws_security_group.controller.id}"
-
-  type      = "ingress"
-  protocol  = 4
-  from_port = 0
-  to_port   = 0
-  self      = true
-}
-
-resource "aws_security_group_rule" "controller-ipip-legacy" {
-  security_group_id = "${aws_security_group.controller.id}"
-
-  type                     = "ingress"
-  protocol                 = 94
-  from_port                = 0
-  to_port                  = 0
-  source_security_group_id = "${aws_security_group.worker.id}"
-}
-
-resource "aws_security_group_rule" "controller-ipip-legacy-self" {
-  security_group_id = "${aws_security_group.controller.id}"
-
-  type      = "ingress"
-  protocol  = 94
-  from_port = 0
-  to_port   = 0
-  self      = true
-}
-
-resource "aws_security_group_rule" "controller-egress" {
-  security_group_id = "${aws_security_group.controller.id}"
-
-  type             = "egress"
-  protocol         = "-1"
-  from_port        = 0
-  to_port          = 0
-  cidr_blocks      = ["0.0.0.0/0"]
-  ipv6_cidr_blocks = ["::/0"]
-}

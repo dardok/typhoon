@@ -1,4 +1,4 @@
-# Typhoon [![IRC](https://img.shields.io/badge/freenode-%23typhoon-0099ef.svg)]() <img align="right" src="https://storage.googleapis.com/dghubble/spin.png">
+# Typhoon <img align="right" src="https://storage.googleapis.com/poseidon/typhoon-logo.png">
 
 Typhoon is a minimal and free Kubernetes distribution.
 
@@ -9,12 +9,13 @@ Typhoon is a minimal and free Kubernetes distribution.
 
 Typhoon distributes upstream Kubernetes, architectural conventions, and cluster addons, much like a GNU/Linux distribution provides the Linux kernel and userspace components.
 
-## Features
+## Features <a href="https://www.cncf.io/certification/software-conformance/"><img align="right" src="https://storage.googleapis.com/poseidon/certified-kubernetes.png"></a>
 
-* Kubernetes v1.7.7 (upstream, via [kubernetes-incubator/bootkube](https://github.com/kubernetes-incubator/bootkube))
-* Single or multi-master, workloads isolated on workers, [Calico](https://www.projectcalico.org/) or [flannel](https://github.com/coreos/flannel) networking
+* Kubernetes v1.17.3 (upstream)
+* Single or multi-master, [Calico](https://www.projectcalico.org/) or [flannel](https://github.com/coreos/flannel) networking
 * On-cluster etcd with TLS, [RBAC](https://kubernetes.io/docs/admin/authorization/rbac/)-enabled, [network policy](https://kubernetes.io/docs/concepts/services-networking/network-policies/)
-* Ready for Ingress, Dashboards, Metrics, and other optional [addons](https://typhoon.psdn.io/addons/overview/)
+* Advanced features like [worker pools](https://typhoon.psdn.io/advanced/worker-pools/), [preemptible](https://typhoon.psdn.io/cl/google-cloud/#preemption) workers, and [snippets](https://typhoon.psdn.io/advanced/customization/#container-linux) customization
+* Ready for Ingress, Prometheus, Grafana, CSI, or other [addons](https://typhoon.psdn.io/addons/overview/)
 
 ## Modules
 
@@ -22,65 +23,83 @@ Typhoon provides a Terraform Module for each supported operating system and plat
 
 | Platform      | Operating System | Terraform Module | Status |
 |---------------|------------------|------------------|--------|
-| AWS           | Container Linux  | [aws/container-linux/kubernetes](aws/container-linux/kubernetes) | alpha |
-| Bare-Metal    | Container Linux  | [bare-metal/container-linux/kubernetes](bare-metal/container-linux/kubernetes) | production |
+| AWS           | Container Linux  | [aws/container-linux/kubernetes](aws/container-linux/kubernetes) | stable |
+| Azure         | Container Linux  | [azure/container-linux/kubernetes](azure/container-linux/kubernetes) | alpha |
+| Bare-Metal    | Container Linux  | [bare-metal/container-linux/kubernetes](bare-metal/container-linux/kubernetes) | stable |
 | Digital Ocean | Container Linux  | [digital-ocean/container-linux/kubernetes](digital-ocean/container-linux/kubernetes) | beta |
-| Google Cloud  | Container Linux  | [google-cloud/container-linux/kubernetes](google-cloud/container-linux/kubernetes) | production |
+| Google Cloud  | Container Linux  | [google-cloud/container-linux/kubernetes](google-cloud/container-linux/kubernetes) | stable |
 
-## Usage
+Typhoon is available for [Fedora CoreOS](https://getfedora.org/coreos/).
+
+| Platform      | Operating System | Terraform Module | Status |
+|---------------|------------------|------------------|--------|
+| AWS           | Fedora CoreOS | [aws/fedora-coreos/kubernetes](aws/fedora-coreos/kubernetes) | beta |
+| Bare-Metal    | Fedora CoreOS | [bare-metal/fedora-coreos/kubernetes](bare-metal/fedora-coreos/kubernetes) | beta |
+| Google Cloud  | Fedora CoreOS | [google-cloud/fedora-coreos/kubernetes](google-cloud/fedora-coreos/kubernetes) | alpha |
+
+Typhoon is available for [Flatcar Container Linux](https://www.flatcar-linux.org/releases/).
+
+| Platform      | Operating System | Terraform Module | Status |
+|---------------|------------------|------------------|--------|
+| AWS           | Flatcar Linux    | [aws/container-linux/kubernetes](aws/container-linux/kubernetes) | stable |
+| Bare-Metal    | Flatcar Linux    | [bare-metal/container-linux/kubernetes](bare-metal/container-linux/kubernetes) | stable |
+| Google Cloud  | Flatcar Linux  | [google-cloud/container-linux/kubernetes](google-cloud/container-linux/kubernetes) | alpha |
+| Digital Ocean | Flatcar Linux  | [digital-ocean/container-linux/kubernetes](digital-ocean/container-linux/kubernetes) | alpha |
+
+## Documentation
 
 * [Docs](https://typhoon.psdn.io)
-* [Concepts](https://typhoon.psdn.io/concepts/)
-* Tutorials
-  * [AWS](https://typhoon.psdn.io/aws/)
-  * [Bare-Metal](https://typhoon.psdn.io/bare-metal/)
-  * [Digital Ocean](https://typhoon.psdn.io/digital-ocean/)
-  * [Google-Cloud](https://typhoon.psdn.io/google-cloud/)
+* Architecture [concepts](https://typhoon.psdn.io/architecture/concepts/) and [operating systems](https://typhoon.psdn.io/architecture/operating-systems/)
+* Tutorials for [AWS](docs/cl/aws.md), [Azure](docs/cl/azure.md), [Bare-Metal](docs/cl/bare-metal.md), [Digital Ocean](docs/cl/digital-ocean.md), and [Google-Cloud](docs/cl/google-cloud.md)
 
-## Example
+## Usage
 
 Define a Kubernetes cluster by using the Terraform module for your chosen platform and operating system. Here's a minimal example:
 
 ```tf
-module "google-cloud-yavin" {
-  source = "git::https://github.com/poseidon/typhoon//google-cloud/container-linux/kubernetes"
+module "yavin" {
+  source = "git::https://github.com/poseidon/typhoon//google-cloud/container-linux/kubernetes?ref=v1.17.3"
 
   # Google Cloud
-  zone          = "us-central1-c"
+  cluster_name  = "yavin"
+  region        = "us-central1"
   dns_zone      = "example.com"
   dns_zone_name = "example-zone"
-  os_image      = "coreos-stable-1465-6-0-v20170817"
 
-  cluster_name       = "yavin"
-  controller_count   = 1
-  worker_count       = 2
+  # configuration
   ssh_authorized_key = "ssh-rsa AAAAB3Nz..."
 
-  # output assets dir
-  asset_dir = "/home/user/.secrets/clusters/yavin"
+  # optional
+  worker_count = 2
+  worker_preemptible = true
+}
+
+# Obtain cluster kubeconfig
+resource "local_file" "kubeconfig-yavin" {
+  content  = module.yavin.kubeconfig-admin
+  filename = "/home/user/.kube/configs/yavin-config"
 }
 ```
 
-Fetch modules, plan the changes to be made, and apply the changes.
+Initialize modules, plan the changes to be made, and apply the changes.
 
 ```sh
 $ terraform init
-$ terraform get --update
 $ terraform plan
-Plan: 37 to add, 0 to change, 0 to destroy.
+Plan: 62 to add, 0 to change, 0 to destroy.
 $ terraform apply
-Apply complete! Resources: 37 added, 0 changed, 0 destroyed.
+Apply complete! Resources: 62 added, 0 changed, 0 destroyed.
 ```
 
-In 5-10 minutes (varies by platform), the cluster will be ready. This Google Cloud example creates a `yavin.example.com` DNS record to resolve to a network load balancer across controller nodes.
+In 4-8 minutes (varies by platform), the cluster will be ready. This Google Cloud example creates a `yavin.example.com` DNS record to resolve to a network load balancer across controller nodes.
 
 ```sh
-$ KUBECONFIG=/home/user/.secrets/clusters/yavin/auth/kubeconfig
+$ export KUBECONFIG=/home/user/.kube/configs/yavin-config
 $ kubectl get nodes
-NAME                                          STATUS   AGE    VERSION
-yavin-controller-1682.c.example-com.internal  Ready    6m     v1.7.7+coreos.0
-yavin-worker-jrbf.c.example-com.internal      Ready    5m     v1.7.7+coreos.0
-yavin-worker-mzdm.c.example-com.internal      Ready    5m     v1.7.7+coreos.0
+NAME                                       ROLES    STATUS  AGE  VERSION
+yavin-controller-0.c.example-com.internal  <none>   Ready   6m   v1.17.3
+yavin-worker-jrbf.c.example-com.internal   <none>   Ready   5m   v1.17.3
+yavin-worker-mzdm.c.example-com.internal   <none>   Ready   5m   v1.17.3
 ```
 
 List the pods.
@@ -91,19 +110,14 @@ NAMESPACE     NAME                                      READY  STATUS    RESTART
 kube-system   calico-node-1cs8z                         2/2    Running   0         6m
 kube-system   calico-node-d1l5b                         2/2    Running   0         6m
 kube-system   calico-node-sp9ps                         2/2    Running   0         6m
-kube-system   etcd-operator-3329263108-f443m            1/1    Running   1         6m
-kube-system   kube-apiserver-zppls                      1/1    Running   0         6m
-kube-system   kube-controller-manager-3271970485-gh9kt  1/1    Running   0         6m
-kube-system   kube-controller-manager-3271970485-h90v8  1/1    Running   1         6m
-kube-system   kube-dns-1187388186-zj5dl                 3/3    Running   0         6m
-kube-system   kube-etcd-0000                            1/1    Running   0         5m
-kube-system   kube-etcd-network-checkpointer-crznb      1/1    Running   0         6m
+kube-system   coredns-1187388186-zj5dl                  1/1    Running   0         6m
+kube-system   coredns-1187388186-dkh3o                  1/1    Running   0         6m
+kube-system   kube-apiserver-controller-0               1/1    Running   0         6m
+kube-system   kube-controller-manager-controller-0      1/1    Running   0         6m
 kube-system   kube-proxy-117v6                          1/1    Running   0         6m
 kube-system   kube-proxy-9886n                          1/1    Running   0         6m
 kube-system   kube-proxy-njn47                          1/1    Running   0         6m
-kube-system   kube-scheduler-3895335239-5x87r           1/1    Running   0         6m
-kube-system   kube-scheduler-3895335239-bzrrt           1/1    Running   1         6m
-kube-system   pod-checkpointer-l6lrt                    1/1    Running   0         6m
+kube-system   kube-scheduler-controller-0               1/1    Running   0         6m
 ```
 
 ## Non-Goals
@@ -118,11 +132,11 @@ Typhoon is strict about minimalism, maturity, and scope. These are not in scope:
 
 Ask questions on the IRC #typhoon channel on [freenode.net](http://freenode.net/).
 
-## Background
+## Motivation
 
 Typhoon powers the author's cloud and colocation clusters. The project has evolved through operational experience and Kubernetes changes. Typhoon is shared under a free license to allow others to use the work freely and contribute to its upkeep.
 
-Typhoon addresses real world needs, which you may share. It is honest about limitations or areas that aren't mature yet. It avoids buzzword bingo and hype. It does not aim to be the one-solution-fits-all distro. An ecosystem of free (or enterprise) Kubernetes distros is healthy.
+Typhoon addresses real world needs, which you may share. It is honest about limitations or areas that aren't mature yet. It avoids buzzword bingo and hype. It does not aim to be the one-solution-fits-all distro. An ecosystem of Kubernetes distributions is healthy.
 
 ## Social Contract
 
@@ -130,4 +144,8 @@ Typhoon is not a product, trial, or free-tier. It is not run by a company, does 
 
 Typhoon clusters will contain only [free](https://www.debian.org/intro/free) components. Cluster components will not collect data on users without their permission.
 
-*Disclosure: The author works for CoreOS and previously wrote Matchbox and original Tectonic for bare-metal and AWS. This project is not associated with CoreOS.*
+## Donations
+
+Typhoon does not accept money donations. Instead, we encourage you to donate to one of [these organizations](https://github.com/poseidon/typhoon/wiki/Donations) to show your appreciation.
+
+* [DigitalOcean](https://www.digitalocean.com/) kindly provides credits to support Typhoon test clusters.

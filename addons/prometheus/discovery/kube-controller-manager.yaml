@@ -1,0 +1,18 @@
+# Allow Prometheus to scrape service endpoints
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube-controller-manager
+  namespace: kube-system
+  annotations:
+    prometheus.io/scrape: 'true'
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    k8s-app: kube-controller-manager
+  ports:
+    - name: metrics
+      protocol: TCP
+      port: 10252
+      targetPort: 10252

@@ -1,31 +1,35 @@
-site_name: Typhoon
-theme: material
-site_favicon: 'img/favicon.ico'
+site_name: 'Typhoon'
+site_description: 'A minimal and free Kubernetes distribution'
+site_author: 'Dalton Hubble'
 repo_name: 'poseidon/typhoon'
 repo_url: 'https://github.com/poseidon/typhoon'
-extra:
+theme:
+  name: 'material'
+  feature:
+    tabs: 'true'
   palette:
     primary: 'blue'
-    accent: 'light blue'
+    accent: 'pink'
   logo: 'img/spin.png'
+  favicon: 'img/favicon.ico'
   font:
     text: 'Roboto Slab'
     code: 'Roboto Mono'
+extra:
   social:
     - type: 'github'
       link: 'https://github.com/poseidon'
     - type: 'twitter'
       link: 'https://twitter.com/typhoon8s'
-google_analytics:
-  - 'UA-38995133-6'
-  - 'auto'
 markdown_extensions:
   - admonition
   - codehilite
   - footnotes
-  - toc(permalink=true)
+  - toc:
+      permalink: true
   - pymdownx.arithmatex
-  - pymdownx.betterem(smart_enable=all)
+  - pymdownx.betterem:
+      smart_enable: all
   - pymdownx.caret
   - pymdownx.critic
   - pymdownx.emoji:
@@ -35,24 +39,43 @@ markdown_extensions:
   - pymdownx.mark
   - pymdownx.smartsymbols
   - pymdownx.superfences
-  - pymdownx.tasklist(custom_checkbox=true)
+  - pymdownx.tasklist:
+      custom_checkbox: true
   - pymdownx.tilde
-pages:
+nav:
   - Home: 'index.md'
-  - 'Concepts': 'concepts.md'
-  - 'AWS': 'aws.md'
-  - 'Bare-Metal': 'bare-metal.md'
-  - 'Digital Ocean': 'digital-ocean.md'
-  - 'Google Cloud': 'google-cloud.md'
-  - 'Addons':
-    - 'Overview': 'addons/overview.md'
-    - 'Nginx Ingress': 'addons/ingress.md'
-    - 'Heapster': 'addons/heapster.md'
-    - 'Dashboard': 'addons/dashboard.md'
-    - 'CLUO': 'addons/cluo.md'
+  - 'Announce': 'announce.md'
+  - 'Architecture':
+    - 'Concepts': 'architecture/concepts.md'
+    - 'Operating Systems': 'architecture/operating-systems.md'
+    - 'AWS': 'architecture/aws.md'
+    - 'Azure': 'architecture/azure.md'
+    - 'Bare-Metal': 'architecture/bare-metal.md'
+    - 'DigitalOcean': 'architecture/digitalocean.md'
+    - 'Google Cloud': 'architecture/google-cloud.md'
+  - 'Container Linux':
+    - 'AWS': 'cl/aws.md'
+    - 'Azure': 'cl/azure.md'
+    - 'Bare-Metal': 'cl/bare-metal.md'
+    - 'Digital Ocean': 'cl/digital-ocean.md'
+    - 'Google Cloud': 'cl/google-cloud.md'
+  - 'Fedora CoreOS':
+    - 'AWS': 'fedora-coreos/aws.md'
+    - 'Bare-Metal': 'fedora-coreos/bare-metal.md'
+    - 'Google Cloud': 'fedora-coreos/google-cloud.md'
   - 'Topics':
+    - 'Maintenance': 'topics/maintenance.md'
+    - 'Hardware': 'topics/hardware.md'
     - 'Security': 'topics/security.md'
     - 'Performance': 'topics/performance.md'
-  - 'FAQ': 'faq.md'
+    - 'FAQ': 'topics/faq.md'
   - 'Advanced':
+    - 'Overview': 'advanced/overview.md'
     - 'Customization': 'advanced/customization.md'
+    - 'Worker Pools': 'advanced/worker-pools.md'
+  - 'Addons':
+    - 'Overview': 'addons/overview.md'
+    - 'CLUO': 'addons/cluo.md'
+    - 'Nginx Ingress': 'addons/ingress.md'
+    - 'Prometheus': 'addons/prometheus.md'
+    - 'Grafana': 'addons/grafana.md'

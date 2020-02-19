@@ -1,82 +1,107 @@
-variable "cluster_name" {
-  type        = "string"
-  description = "Unique cluster name"
+variable "name" {
+  type        = string
+  description = "Unique name for the worker pool"
 }
 
-variable "ssh_authorized_key" {
-  type        = "string"
-  description = "SSH public key for logging in as user 'core'"
+variable "cluster_name" {
+  type        = string
+  description = "Must be set to `cluster_name of cluster`"
+}
+
+# Google Cloud
+
+variable "region" {
+  type        = string
+  description = "Must be set to `region` of cluster"
 }
 
 variable "network" {
-  type        = "string"
-  description = "Name of the network to attach to the compute instance interfaces"
+  type        = string
+  description = "Must be set to `network_name` output by cluster"
 }
 
 # instances
 
-variable "count" {
-  type        = "string"
+variable "worker_count" {
+  type        = number
   description = "Number of worker compute instances the instance group should manage"
-}
-
-variable "zone" {
-  type        = "string"
-  description = "Google zone that compute instances in the group should be created in (e.g. gcloud compute zones list)"
+  default     = 1
 }
 
 variable "machine_type" {
-  type        = "string"
+  type        = string
   description = "Machine type for compute instances (e.g. gcloud compute machine-types list)"
+  default     = "n1-standard-1"
 }
 
 variable "os_image" {
-  type        = "string"
-  description = "OS image from which to initialize the disk (e.g. gcloud compute images list)"
+  type        = string
+  description = "Container Linux image for compute instanges (e.g. gcloud compute images list)"
+  default     = "coreos-stable"
 }
 
 variable "disk_size" {
-  type        = "string"
-  default     = "40"
-  description = "The size of the disk in gigabytes."
+  type        = number
+  description = "Size of the disk in GB"
+  default     = 40
 }
 
 variable "preemptible" {
-  type        = "string"
-  default     = "false"
+  type        = bool
   description = "If enabled, Compute Engine will terminate instances randomly within 24 hours"
+  default     = false
+}
+
+variable "clc_snippets" {
+  type        = list(string)
+  description = "Container Linux Config snippets"
+  default     = []
 }
 
 # configuration
 
+variable "kubeconfig" {
+  type        = string
+  description = "Must be set to `kubeconfig` output by cluster"
+}
+
+variable "ssh_authorized_key" {
+  type        = string
+  description = "SSH public key for user 'core'"
+}
+
 variable "service_cidr" {
+  type        = string
   description = <<EOD
-CIDR IP range to assign Kubernetes services.
-The 1st IP will be reserved for kube_apiserver, the 10th IP will be reserved for kube-dns, the 15th IP will be reserved for self-hosted etcd, and the 200th IP will be reserved for bootstrap self-hosted etcd.
+CIDR IPv4 range to assign Kubernetes services.
+The 1st IP will be reserved for kube_apiserver, the 10th IP will be reserved for coredns.
 EOD
-
-  type    = "string"
-  default = "10.3.0.0/16"
+  default     = "10.3.0.0/16"
 }
 
-# kubeconfig
-
-variable "kubeconfig_ca_cert" {
-  type        = "string"
-  description = "Generated kubeconfig CA certificate"
+variable "node_labels" {
+  type        = list(string)
+  description = "List of initial node labels"
+  default     = []
 }
 
-variable "kubeconfig_kubelet_cert" {
-  type        = "string"
-  description = "Generated kubeconfig kubelet certificate"
+# unofficial, undocumented, unsupported, temporary
+
+variable "cluster_domain_suffix" {
+  type        = string
+  description = "Queries for domains with the suffix will be answered by coredns. Default is cluster.local (e.g. foo.default.svc.cluster.local) "
+  default     = "cluster.local"
 }
 
-variable "kubeconfig_kubelet_key" {
-  type        = "string"
-  description = "Generated kubeconfig kubelet private key"
+variable "accelerator_type" {
+  type        = string
+  default     = ""
+  description = "Google Compute Engine accelerator type (e.g. nvidia-tesla-k80, see gcloud compute accelerator-types list)"
 }
 
-variable "kubeconfig_server" {
-  type        = "string"
-  description = "Generated kubeconfig server"
+variable "accelerator_count" {
+  type        = string
+  default     = "0"
+  description = "Number of compute engine accelerators"
 }
+
