@@ -62,14 +62,9 @@ resource "matchbox_profile" "cached-container-linux-install" {
     "coreos.config.url=${var.matchbox_http_endpoint}/ignition?uuid=$${uuid}&mac=$${mac:hexhyp}",
     "coreos.first_boot=yes",
     "console=tty0",
-<<<<<<< HEAD
     "console=ttyS1,115200n8",
-  ]
-=======
-    "console=ttyS0",
     var.kernel_args,
   ])
->>>>>>> upstream/master
 
   container_linux_config = data.template_file.cached-container-linux-install-configs.*.rendered[count.index]
 }
