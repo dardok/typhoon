@@ -4,7 +4,28 @@ Notable changes between versions.
 
 ## Latest
 
+* Update etcd from v3.4.3 to [v3.4.4](https://github.com/etcd-io/etcd/releases/tag/v3.4.4)
+  * On Container Linux, fetch using the docker transport format ([#659](https://github.com/poseidon/typhoon/pull/659))
 * Update CoreDNS from v1.6.6 to v1.6.7 ([#648](https://github.com/poseidon/typhoon/pull/648))
+
+#### AWS
+
+* Allow VPC route table extension via reference ([#654](https://github.com/poseidon/typhoon/pull/654))
+* Fix `worker_node_labels` on Fedora CoreOS ([#651](https://github.com/poseidon/typhoon/pull/651))
+* Fix automatic worker node delete on shutdown on Fedora CoreOS ([#657](https://github.com/poseidon/typhoon/pull/657))
+
+#### Azure
+
+* Upgrade to `terraform-provider-azurerm` [v2.0+](https://www.terraform.io/docs/providers/azurerm/guides/2.0-upgrade-guide.html) (action required)
+  * Switch to Azure's new Linux VM and Linux VM Scale Set resources
+  * If set, change `worker_priority` from `Low` to `Spot` (action required)
+  * Set controller's Azure disk caching to None
+  * Associate subnets (in addition to NICs) with security groups (aesthetic)
+
+#### Google Cloud
+
+* Fix `worker_node_labels` on Fedora CoreOS ([#651](https://github.com/poseidon/typhoon/pull/651))
+* Fix automatic worker node delete on shutdown on Fedora CoreOS ([#657](https://github.com/poseidon/typhoon/pull/657))
 
 #### DigitalOcean
 
@@ -12,7 +33,14 @@ Notable changes between versions.
 
 #### Addons
 
+* Update nginx-ingress from v0.28.0 to [v0.30.0](https://github.com/kubernetes/ingress-nginx/releases/tag/nginx-0.30.0)
 * Update Prometheus from v2.15.2 to [v2.16.0](https://github.com/prometheus/prometheus/releases/tag/v2.16.0)
+  * Refresh Prometheus rules and alerts
+  * Add a BlackboxProbeFailure alert
+  * Update kube-state-metrics from v1.9.4 to v1.9.5
+  * Update node-exporter from v0.18.1 to [v1.0.0-rc.0](https://github.com/prometheus/node_exporter/releases/tag/v1.0.0-rc.0)
+* Update Grafana from v6.6.1 to v6.6.2
+  * Refresh Grafana dashboards
 
 ## v1.17.3
 
